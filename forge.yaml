@@ -1,0 +1,4 @@
+steps:
+  - command: echo "Hello, FORGE!"
+  - command: ls -la
+  - command: echo "This is a simple test pipeline"

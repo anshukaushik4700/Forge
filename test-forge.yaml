@@ -1,0 +1,39 @@
+# FORGE Configuration File
+version: "1.0"
+
+# Define stages in your pipeline
+stages:
+  - name: setup
+    steps:
+      - name: Install Dependencies
+        command: echo "Installing dependencies..."
+        image: alpine:latest
+    parallel: false
+  
+  - name: test
+    steps:
+      - name: Run Tests
+        command: echo "Running tests..."
+        image: alpine:latest
+    depends_on:
+      - setup
+  
+  - name: build
+    steps:
+      - name: Build Application
+        command: echo "Building application..."
+        image: alpine:latest
+    depends_on:
+      - test
+
+# Cache configuration
+cache:
+  enabled: true
+  directories:
+    - /app/node_modules
+    - /app/.cache
+
+# Secrets configuration
+secrets:
+  - name: API_TOKEN
+    env_var: FORGE_API_TOKEN

@@ -1,0 +1,13 @@
+version: "1.0"
+stages:
+  - name: setup
+    steps:
+      - name: Install Node
+        command: node --version
+        image: node:16-alpine
+        
+  - name: test  
+    steps:
+      - name: List Files
+        command: ls -la
+        image: alpine:latest

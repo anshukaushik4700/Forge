@@ -1,0 +1,51 @@
+# FORGE Multi-Stage Test Configuration
+version: "1.0"
+
+# Define stages in your pipeline
+stages:
+  - name: setup
+    steps:
+      - name: Setup Environment
+        command: |
+          mkdir -p /app/test
+          echo "Hello World" > /app/test/hello.txt
+          echo "Setup complete"
+        image: alpine:latest
+    parallel: false
+  
+  - name: test
+    steps:
+      - name: Test Environment
+        command: |
+          if [ -f /app/test/hello.txt ]; then
+            echo "File exists!"
+            cat /app/test/hello.txt
+          else
+            echo "File does not exist!"
+            exit 1
+          fi
+        image: alpine:latest
+    depends_on:
+      - setup
+  
+  - name: build
+    steps:
+      - name: Build Environment
+        command: |
+          echo "Goodbye World" >> /app/test/hello.txt
+          echo "Updated file contents:"
+          cat /app/test/hello.txt
+        image: alpine:latest
+    depends_on:
+      - test
+
+# Cache configuration
+cache:
+  enabled: true
+  directories:
+    - /app/test
+
+# Secrets configuration
+secrets:
+  - name: TEST_SECRET
+    env_var: FORGE_TEST_SECRET

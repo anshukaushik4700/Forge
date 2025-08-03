@@ -521,11 +521,7 @@ async fn run_command_in_container(
     let container_name = format!("forge-{}", uuid::Uuid::new_v4());
 
     // Prepare environment variables
-    let env: Vec<String> = step
-        .env
-        .iter()
-        .map(|(k, v)| format!("{k}={v}"))
-        .collect();
+    let env: Vec<String> = step.env.iter().map(|(k, v)| format!("{k}={v}")).collect();
 
     // Create container
     let step_name = if step.name.is_empty() {
@@ -535,10 +531,10 @@ async fn run_command_in_container(
     };
     println!("{}", format!("Running step: {step_name}").yellow().bold());
     if verbose {
-        println!("  Command: {command}", command=step.command);
+        println!("  Command: {command}", command = step.command);
         println!("  Image: {image}");
         if !step.working_dir.is_empty() {
-            println!("  Working directory: {dir}", dir=step.working_dir);
+            println!("  Working directory: {dir}", dir = step.working_dir);
         }
         if !step.env.is_empty() {
             println!("  Environment variables:");
@@ -678,7 +674,10 @@ async fn run_command_in_container(
                 );
                 true
             } else {
-                let error_msg = format!("Step failed with exit code {}: {}", exit.status_code, step_name);
+                let error_msg = format!(
+                    "Step failed with exit code {}: {}",
+                    exit.status_code, step_name
+                );
                 println!("{}", error_msg.red().bold());
                 false
             }
@@ -704,7 +703,9 @@ async fn run_command_in_container(
     if exit_status {
         Ok(())
     } else {
-        Err(Box::new(std::io::Error::other(format!("Step failed: {step_name}"))))
+        Err(Box::new(std::io::Error::other(format!(
+            "Step failed: {step_name}"
+        ))))
     }
 }
 

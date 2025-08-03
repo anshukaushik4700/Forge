@@ -3,12 +3,12 @@
 //! These tests verify that the FORGE configuration parser correctly handles
 //! various YAML formats and validates the configuration properly.
 
-use std::path::Path;
-use std::fs::File;
-use std::io::Write;
-use tempfile::tempdir;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
+use std::path::Path;
+use tempfile::tempdir;
 
 // Import the necessary types from the main crate
 // Note: In a real implementation, these would be public and imported from the crate
@@ -80,7 +80,7 @@ fn test_parse_basic_config() {
     // Create a temporary directory for our test files
     let dir = tempdir().unwrap();
     let file_path = dir.path().join("forge.yaml");
-    
+
     // Create a basic config file
     let config_content = r#"
 steps:
@@ -95,13 +95,13 @@ steps:
     image: node:16-alpine
     working_dir: /app
 "#;
-    
+
     let mut file = File::create(&file_path).unwrap();
     file.write_all(config_content.as_bytes()).unwrap();
-    
+
     // Parse the config
     let config = read_forge_config(&file_path).unwrap();
-    
+
     // Verify the parsed config
     assert_eq!(config.version, "1.0");
     assert_eq!(config.steps.len(), 2);
@@ -110,7 +110,7 @@ steps:
     assert_eq!(config.steps[0].image, "node:16-alpine");
     assert_eq!(config.steps[0].working_dir, "/app");
     assert_eq!(config.steps[0].env.get("NODE_ENV").unwrap(), "development");
-    
+
     assert_eq!(config.steps[1].name, "Run Tests");
     assert_eq!(config.steps[1].command, "npm test");
 }
@@ -120,7 +120,7 @@ fn test_parse_advanced_config() {
     // Create a temporary directory for our test files
     let dir = tempdir().unwrap();
     let file_path = dir.path().join("forge.yaml");
-    
+
     // Create an advanced config file with stages, cache, and secrets
     let config_content = r#"
 version: "1.0"
@@ -169,24 +169,24 @@ secrets:
   - name: API_TOKEN
     env_var: FORGE_API_TOKEN
 "#;
-    
+
     let mut file = File::create(&file_path).unwrap();
     file.write_all(config_content.as_bytes()).unwrap();
-    
+
     // Parse the config
     let config = read_forge_config(&file_path).unwrap();
-    
+
     // Verify the parsed config
     assert_eq!(config.version, "1.0");
     assert_eq!(config.stages.len(), 2);
-    
+
     // Verify build stage
     let build_stage = &config.stages[0];
     assert_eq!(build_stage.name, "build");
     assert_eq!(build_stage.steps.len(), 2);
     assert_eq!(build_stage.parallel, false);
     assert_eq!(build_stage.depends_on.len(), 0);
-    
+
     // Verify test stage
     let test_stage = &config.stages[1];
     assert_eq!(test_stage.name, "test");
@@ -194,13 +194,13 @@ secrets:
     assert_eq!(test_stage.parallel, true);
     assert_eq!(test_stage.depends_on.len(), 1);
     assert_eq!(test_stage.depends_on[0], "build");
-    
+
     // Verify cache config
     assert_eq!(config.cache.enabled, true);
     assert_eq!(config.cache.directories.len(), 2);
     assert_eq!(config.cache.directories[0], "/app/node_modules");
     assert_eq!(config.cache.directories[1], "/app/.cache");
-    
+
     // Verify secrets
     assert_eq!(config.secrets.len(), 1);
     assert_eq!(config.secrets[0].name, "API_TOKEN");
@@ -212,7 +212,7 @@ fn test_invalid_config() {
     // Create a temporary directory for our test files
     let dir = tempdir().unwrap();
     let file_path = dir.path().join("forge.yaml");
-    
+
     // Create an invalid config file (missing required field 'command')
     let config_content = r#"
 steps:
@@ -220,10 +220,10 @@ steps:
     image: node:16-alpine
     working_dir: /app
 "#;
-    
+
     let mut file = File::create(&file_path).unwrap();
     file.write_all(config_content.as_bytes()).unwrap();
-    
+
     // Parse the config - should fail
     let result = read_forge_config(&file_path);
     assert!(result.is_err());
@@ -234,15 +234,15 @@ fn test_empty_config() {
     // Create a temporary directory for our test files
     let dir = tempdir().unwrap();
     let file_path = dir.path().join("forge.yaml");
-    
+
     // Create an empty config file
     let config_content = r#"
 # Empty config
 "#;
-    
+
     let mut file = File::create(&file_path).unwrap();
     file.write_all(config_content.as_bytes()).unwrap();
-    
+
     // Parse the config - should succeed but with empty values
     let config = read_forge_config(&file_path).unwrap();
     assert_eq!(config.version, "1.0");

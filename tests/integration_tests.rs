@@ -15,7 +15,7 @@ use tokio::runtime::Runtime;
 // For this test, we'll define simplified versions of the functions we need
 
 /// Simplified version of the run_pipeline function for testing
-async fn run_pipeline(_config_path: &Path, _verbose: bool) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_pipeline(_config_path: &Path, _verbose: bool) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // In a real implementation, this would parse the config and run the pipeline
     // For this test, we'll just check if Docker is available
     

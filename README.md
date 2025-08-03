@@ -33,16 +33,16 @@ FORGE is a lightweight local CI/CD tool built with Rust that allows you to run a
 
 ## Features
 
-- ✅ Run CI/CD pipelines from simple YAML files
-- ✅ Isolation using Docker containers
-- ✅ Support for various Docker images
-- ✅ Real-time log streaming with colors
-- ✅ Environment variables management
-- ✅ Intuitive command-line interface
-- ✅ Multi-stage pipelines with parallel execution
-- ✅ Caching to speed up builds
-- ✅ Secure secrets management
-- ✅ Dependencies between steps and stages
+-  Run CI/CD pipelines from simple YAML files
+-  Isolation using Docker containers
+-  Support for various Docker images
+-  Real-time log streaming with colors
+-  Environment variables management
+-  Intuitive command-line interface
+-  Multi-stage pipelines with parallel execution
+-  Caching to speed up builds
+-  Secure secrets management
+-  Dependencies between steps and stages
 
 ## Installation
 

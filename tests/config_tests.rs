@@ -184,19 +184,19 @@ secrets:
     let build_stage = &config.stages[0];
     assert_eq!(build_stage.name, "build");
     assert_eq!(build_stage.steps.len(), 2);
-    assert_eq!(build_stage.parallel, false);
+    assert!(!build_stage.parallel);
     assert_eq!(build_stage.depends_on.len(), 0);
 
     // Verify test stage
     let test_stage = &config.stages[1];
     assert_eq!(test_stage.name, "test");
     assert_eq!(test_stage.steps.len(), 2);
-    assert_eq!(test_stage.parallel, true);
+    assert!(test_stage.parallel);
     assert_eq!(test_stage.depends_on.len(), 1);
     assert_eq!(test_stage.depends_on[0], "build");
 
     // Verify cache config
-    assert_eq!(config.cache.enabled, true);
+    assert!(config.cache.enabled);
     assert_eq!(config.cache.directories.len(), 2);
     assert_eq!(config.cache.directories[0], "/app/node_modules");
     assert_eq!(config.cache.directories[1], "/app/.cache");
@@ -248,7 +248,7 @@ fn test_empty_config() {
     assert_eq!(config.version, "1.0");
     assert_eq!(config.steps.len(), 0);
     assert_eq!(config.stages.len(), 0);
-    assert_eq!(config.cache.enabled, false);
+    assert!(!config.cache.enabled);
     assert_eq!(config.cache.directories.len(), 0);
     assert_eq!(config.secrets.len(), 0);
 }

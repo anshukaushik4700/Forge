@@ -424,7 +424,7 @@ async fn pull_image(
     docker: &Docker,
     image: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    println!("{}", format!("Pulling image: {}", image).cyan().bold());
+    println!("{}", format!("Pulling image: {image}").cyan().bold());
 
     let options = Some(CreateImageOptions {
         from_image: image.to_string(),
@@ -438,7 +438,7 @@ async fn pull_image(
             .template("{spinner:.blue} {msg}")
             .unwrap(),
     );
-    spinner.set_message(format!("Pulling {}", image));
+    spinner.set_message(format!("Pulling {image}"));
 
     let mut stream = docker.create_image(options, None, None);
 
@@ -446,11 +446,11 @@ async fn pull_image(
         match result {
             Ok(info) => {
                 if let Some(status) = info.status {
-                    spinner.set_message(format!("{}: {}", image, status));
+                    spinner.set_message(format!("{image}: {status}"));
                 }
             }
             Err(e) => {
-                spinner.finish_with_message(format!("Failed to pull image: {}", image));
+                spinner.finish_with_message(format!("Failed to pull image: {image}"));
                 return Err(Box::new(e));
             }
         }
@@ -458,7 +458,7 @@ async fn pull_image(
 
     spinner.finish_with_message(format!(
         "{}",
-        format!("Image pulled successfully: {}", image).green()
+        format!("Image pulled successfully: {image}").green()
     ));
     Ok(())
 }
@@ -506,7 +506,7 @@ async fn run_command_in_container(
     step: &Step,
     verbose: bool,
     cache_config: &CacheConfig,
-    temp_dir: &std::path::PathBuf,
+    temp_dir: &std::path::Path,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let image = if step.image.is_empty() {
         "alpine:latest"
@@ -524,7 +524,7 @@ async fn run_command_in_container(
     let env: Vec<String> = step
         .env
         .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
+        .map(|(k, v)| format!("{k}={v}"))
         .collect();
 
     // Create container
@@ -533,17 +533,17 @@ async fn run_command_in_container(
     } else {
         &step.name
     };
-    println!("{}", format!("Running step: {}", step_name).yellow().bold());
+    println!("{}", format!("Running step: {step_name}").yellow().bold());
     if verbose {
-        println!("  Command: {}", step.command);
-        println!("  Image: {}", image);
+        println!("  Command: {command}", command=step.command);
+        println!("  Image: {image}");
         if !step.working_dir.is_empty() {
-            println!("  Working directory: {}", step.working_dir);
+            println!("  Working directory: {dir}", dir=step.working_dir);
         }
         if !step.env.is_empty() {
             println!("  Environment variables:");
             for (k, v) in &step.env {
-                println!("    {}={}", k, v);
+                println!("    {k}={v}");
             }
         }
     }
@@ -579,26 +579,25 @@ async fn run_command_in_container(
         let mut cache_setup = String::new();
         for dir in &cache_config.directories {
             // Create the directory in the shared volume if it doesn't exist
-            cache_setup.push_str(&format!("mkdir -p /forge-shared{}\n", dir));
+            cache_setup.push_str(&format!("mkdir -p /forge-shared{dir}\n"));
             // Create the target directory if it doesn't exist
-            cache_setup.push_str(&format!("mkdir -p {}\n", dir));
+            cache_setup.push_str(&format!("mkdir -p {dir}\n"));
             // Copy from shared volume to the target directory if it exists
-            cache_setup.push_str(&format!("if [ -d /forge-shared{} ] && [ \"$(ls -A /forge-shared{})\" ]; then cp -r /forge-shared{}/* {}/ 2>/dev/null || true; fi\n", dir, dir, dir, dir));
+            cache_setup.push_str(&format!("if [ -d /forge-shared{dir} ] && [ \"$(ls -A /forge-shared{dir})\" ]; then cp -r /forge-shared{dir}/* {dir}/ 2>/dev/null || true; fi\n"));
         }
 
         // Create a script for cache teardown
         let mut cache_teardown = String::new();
         for dir in &cache_config.directories {
             // Create the directory in the shared volume if it doesn't exist
-            cache_teardown.push_str(&format!("mkdir -p /forge-shared{}\n", dir));
+            cache_teardown.push_str(&format!("mkdir -p /forge-shared{dir}\n"));
             // Copy from the target directory to the shared volume if it exists
-            cache_teardown.push_str(&format!("if [ -d {} ] && [ \"$(ls -A {})\" ]; then cp -r {}/* /forge-shared{}/ 2>/dev/null || true; fi\n", dir, dir, dir, dir));
+            cache_teardown.push_str(&format!("if [ -d {dir} ] && [ \"$(ls -A {dir})\" ]; then cp -r {dir}/* /forge-shared{dir}/ 2>/dev/null || true; fi\n"));
         }
 
         // Create a combined script
         let script = format!(
-            "#!/bin/sh\n\n# Cache setup\n{}\n# Main command\n{}\n\n# Cache teardown\n{}\n\n# Exit with the status of the main command\nexit $?",
-            cache_setup, command, cache_teardown
+            "#!/bin/sh\n\n# Cache setup\n{cache_setup}\n# Main command\n{command}\n\n# Cache teardown\n{cache_teardown}\n\n# Exit with the status of the main command\nexit $?",
         );
 
         // Use the script as the command
@@ -658,7 +657,7 @@ async fn run_command_in_container(
                 _ => {}
             },
             Err(e) => {
-                eprintln!("Error streaming logs: {}", e);
+                eprintln!("Error streaming logs: {e}");
                 break;
             }
         }
@@ -673,22 +672,19 @@ async fn run_command_in_container(
             if exit.status_code == 0 {
                 println!(
                     "{}",
-                    format!("Step completed successfully: {}", step_name)
+                    format!("Step completed successfully: {step_name}")
                         .green()
                         .bold()
                 );
                 true
             } else {
-                let error_msg = format!(
-                    "Step failed with exit code {}: {}",
-                    exit.status_code, step_name
-                );
+                let error_msg = format!("Step failed with exit code {}: {}", exit.status_code, step_name);
                 println!("{}", error_msg.red().bold());
                 false
             }
         }
         Some(Err(e)) => {
-            let error_msg = format!("Error waiting for container: {}", e);
+            let error_msg = format!("Error waiting for container: {e}");
             println!("{}", error_msg.red().bold());
             false
         }
@@ -702,16 +698,13 @@ async fn run_command_in_container(
     // Clean up the container manually
     match docker.remove_container(&container.id, None).await {
         Ok(_) => println!("Container removed: {}", container.id),
-        Err(e) => eprintln!("Failed to remove container: {}", e),
+        Err(e) => eprintln!("Failed to remove container: {e}"),
     }
 
     if exit_status {
         Ok(())
     } else {
-        Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Step failed: {}", step_name),
-        )))
+        Err(Box::new(std::io::Error::other(format!("Step failed: {step_name}"))))
     }
 }
 
@@ -747,7 +740,7 @@ fn create_example_config(
     if Path::new(path).exists() && !force {
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
-            format!("File {} already exists. Use --force to overwrite.", path),
+            format!("File {path} already exists. Use --force to overwrite."),
         )));
     }
 
@@ -797,7 +790,7 @@ secrets:
 
     println!(
         "{}",
-        format!("Created example configuration file: {}", path)
+        format!("Created example configuration file: {path}")
             .green()
             .bold()
     );
@@ -848,7 +841,7 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if !config_path.exists() {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    format!("Configuration file not found: {}", file),
+                    format!("Configuration file not found: {file}"),
                 )));
             }
 
@@ -884,7 +877,7 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 if config.stages.is_empty() {
                     return Err(Box::new(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        format!("Stage not found: {}", stage_name),
+                        format!("Stage not found: {stage_name}"),
                     )));
                 }
             }
@@ -895,7 +888,7 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             // Create the directory if it doesn't exist
             if !temp_dir.exists() {
                 if let Err(e) = std::fs::create_dir_all(&temp_dir) {
-                    eprintln!("Failed to create temporary directory: {}", e);
+                    eprintln!("Failed to create temporary directory: {e}");
                     // Continue anyway, as this is not critical
                 } else if verbose {
                     println!("Created temporary directory: {}", temp_dir.display());
@@ -930,7 +923,7 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
 
             if let Err(e) = std::fs::remove_dir_all(&temp_dir) {
-                eprintln!("Failed to remove temporary directory: {}", e);
+                eprintln!("Failed to remove temporary directory: {e}");
                 // Continue anyway, as this is not critical
             } else if verbose {
                 println!("Temporary directory removed successfully");
@@ -947,7 +940,7 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if !config_path.exists() {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    format!("Configuration file not found: {}", file),
+                    format!("Configuration file not found: {file}"),
                 )));
             }
 
@@ -980,7 +973,7 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 println!("Cache: Enabled");
                 println!("Cached directories:");
                 for dir in &config.cache.directories {
-                    println!("  - {}", dir);
+                    println!("  - {dir}");
                 }
             } else {
                 println!("Cache: Disabled");
@@ -1010,7 +1003,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let rt = tokio::runtime::Runtime::new()?;
     rt.block_on(async {
         if let Err(e) = forge_main().await {
-            eprintln!("{}", format!("Error: {}", e).red().bold());
+            eprintln!("{}", format!("Error: {e}").red().bold());
             std::process::exit(1);
         }
         Ok(())

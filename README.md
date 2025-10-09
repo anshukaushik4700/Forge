@@ -445,72 +445,11 @@ FORGE consists of several logical components currently implemented in a monolith
 
 In future development, these components will be refactored into separate modules to improve maintainability and testability.
 
-## Comparison with Other Tools
-
-| Feature | FORGE | GitHub Actions | GitLab CI | Jenkins |
-|-------|-------|---------------|-----------|---------|
-| Local Execution | ✅ | ❌ | ❌ | ⚠️ (complex) |
-| Offline | ✅ | ❌ | ❌ | ✅ |
-| Lightweight | ✅ | ❌ | ❌ | ❌ |
-| Multi-Stage | ✅ | ✅ | ✅ | ✅ |
-| Parallelism | ✅ | ✅ | ✅ | ✅ |
-| Caching | ✅ | ✅ | ✅ | ✅ |
-| Secrets | ✅ | ✅ | ✅ | ✅ |
-
-## Roadmap
-
-### Completed Milestones
-- [x] Phase 1: Core Engine
-  - [x] Project Setup & Blueprint Parsing
-  - [x] Docker Integration
-  - [x] Basic Pipeline Execution
-  - [x] Command-line Interface
-
-- [x] Phase 2: Enhanced Features
-  - [x] Real-time Log Streaming
-  - [x] Environment Variables Support
-  - [x] Working Directory Configuration
-  - [x] Step Dependencies
-
-- [x] Phase 3: Advanced Features
-  - [x] Multi-Stage Pipeline
-  - [x] Dependency Caching
-  - [x] Secret Management
-
-- [x] Phase 4: Open Source Readiness
-  - [x] Comprehensive Documentation
-  - [x] Thorough Testing
-  - [x] CI/CD for FORGE Itself
-
-### Future Development
-
-#### Phase 5: Ecosystem Growth (Next 3-6 months)
-- [ ] Plugin System for Extensibility
-- [ ] Pipeline Templates Library
-- [ ] Improved Error Handling and Recovery
-- [ ] Pipeline Visualization
-- [ ] Enhanced Testing Framework
-
-#### Phase 6: Enterprise Features (6-12 months)
-- [ ] Web Dashboard for Monitoring
-- [ ] Remote Execution Support
-- [ ] Notifications (Email, Slack, etc.)
-- [ ] Performance Optimizations
-- [ ] Advanced Caching Strategies
-
-#### Phase 7: Advanced Capabilities (12+ months)
-- [ ] Distributed Execution
-- [ ] Advanced Scheduling and Resource Management
-- [ ] Integration with Popular CI/CD Platforms
-- [ ] Custom Workflow Languages
-- [ ] Enterprise Security Features
-
 ## Contributing
 
 Contributions are always welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on the process for submitting pull requests.
 
 ### How to Contribute
-
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
@@ -542,9 +481,3 @@ You can add secrets by defining them in the configuration file and providing the
 ### Does FORGE support parallel execution?
 
 Yes, FORGE supports parallel execution for steps in the same stage by setting `parallel: true` on the stage.
-
-## Contact
-
-Your Name - email@example.com
-
-Project Link: [https://github.com/0xReLogic/Forge](https://github.com/0xReLogic/Forge)

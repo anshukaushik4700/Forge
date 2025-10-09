@@ -257,12 +257,17 @@ struct Secret {
     author = "FORGE Team",
     version = "0.1.0",
     about = "Local CI/CD Runner",
-    long_about = "FORGE is a CLI tool designed for developers frustrated with the slow feedback cycle of cloud-based CI/CD. By emulating CI/CD pipelines locally using Docker, FORGE aims to drastically improve developer productivity."
+    long_about = "FORGE is a CLI tool designed for developers frustrated with the slow feedback cycle of cloud-based CI/CD. By emulating CI/CD pipelines locally using Docker, FORGE aims to drastically improve developer productivity.",
+    disable_version_flag = true,
+    args_conflicts_with_subcommands = true
 )]
 struct Cli {
     /// Subcommand to run (run, init, or validate)
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
+
+    #[arg(short = 'V', long, help = "Print version")]
+    version: bool,
 }
 
 /// Enum defining all subcommands available in the FORGE CLI.
@@ -827,14 +832,21 @@ secrets:
 async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cli = Cli::parse();
 
+    if cli.version {
+        println!("Forge {}", env!("BUILD_VERSION"));
+        println!("Commit: {}", env!("GIT_VERSION"));
+        println!("Built: {}", env!("BUILD_TIMESTAMP"));
+        return Ok(());
+    }
+
     match cli.command {
-        Commands::Run {
+        Some(Commands::Run {
             file,
             verbose,
             cache,
             no_cache,
             stage,
-        } => {
+        }) => {
             println!("{}", "FORGE Pipeline Runner".cyan().bold());
 
             // Read and parse the configuration file
@@ -933,8 +945,8 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             println!("{}", "Pipeline completed successfully!".green().bold());
             Ok(())
         }
-        Commands::Init { file, force } => create_example_config(&file, force),
-        Commands::Validate { file } => {
+        Some(Commands::Init { file, force }) => create_example_config(&file, force),
+        Some(Commands::Validate { file }) => {
             println!("{}", "Validating configuration file...".cyan().bold());
 
             let config_path = Path::new(&file);
@@ -988,6 +1000,10 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
 
             Ok(())
+        }
+        None => {
+            eprintln!("Error: No command provided. Use --help for usage information.");
+            std::process::exit(1);
         }
     }
 }

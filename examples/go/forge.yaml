@@ -1,0 +1,19 @@
+stages:
+  - name: Build
+    image: golang:1.21-alpine
+    commands:
+      - go build ./...
+
+  - name: Test
+    image: golang:1.21-alpine
+    commands:
+      - go test ./...
+
+  - name: Vet
+    image: golang:1.21-alpine
+    commands:
+      - go vet ./...
+
+caches:
+  - path: /go/pkg/mod
+    key: go-mod-cache

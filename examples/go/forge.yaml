@@ -1,0 +1,32 @@
+version: "1.0"
+stages:
+  - name: build
+    steps:
+      - name: Build
+        command: go build ./...
+        image: golang:1.21-alpine
+        working_dir: /app
+    parallel: false
+  
+  - name: test
+    steps:
+      - name: Run Tests
+        command: go test ./...
+        image: golang:1.21-alpine
+        working_dir: /app
+    depends_on:
+      - build
+  
+  - name: vet
+    steps:
+      - name: Run Vet
+        command: go vet ./...
+        image: golang:1.21-alpine
+        working_dir: /app
+    depends_on:
+      - test
+
+cache:
+  enabled: true
+  directories:
+    - /go/pkg/mod

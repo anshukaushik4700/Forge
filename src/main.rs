@@ -389,14 +389,43 @@ enum Commands {
 /// println!("Loaded config with {} stages", config.stages.len());
 /// ```
 fn read_forge_config(path: &Path) -> Result<ForgeConfig, Box<dyn std::error::Error + Send + Sync>> {
-    let mut file = File::open(path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
+    let mut file = File::open(path).map_err(|e| {
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!(
+                "Failed to open configuration file '{}': {}\n\
+                 Hint: Run 'forge-cli init' to create an example config, or check if the file path is correct",
+                path.display(), e
+            ),
+        ))
+    })?;
 
-    let config: ForgeConfig = serde_yaml::from_str(&contents)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).map_err(|e| {
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+                "Failed to read configuration file '{}': {}\n\
+                 Hint: Check file permissions and ensure the file is not corrupted",
+                path.display(),
+                e
+            ),
+        ))
+    })?;
+
+    let config: ForgeConfig = serde_yaml::from_str(&contents).map_err(|e| {
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+                "Invalid YAML configuration in '{}': {}\n\
+                 Hint: Check your YAML syntax - common issues include incorrect indentation, \n\
+                 missing colons, or invalid field names. Run 'forge-cli validate' for detailed validation",
+                path.display(), e
+            ),
+        ))
+    })?;
     Ok(config)
 }
-
 /// Pull a Docker image if not already available.
 ///
 /// This function checks if the required Docker image is already available
@@ -425,6 +454,7 @@ fn read_forge_config(path: &Path) -> Result<ForgeConfig, Box<dyn std::error::Err
 /// let docker = Docker::connect_with_local_defaults()?;
 /// pull_image(&docker, "node:16-alpine").await?;
 /// ```
+
 async fn pull_image(
     docker: &Docker,
     image: &str,
@@ -456,7 +486,19 @@ async fn pull_image(
             }
             Err(e) => {
                 spinner.finish_with_message(format!("Failed to pull image: {image}"));
-                return Err(Box::new(e));
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!(
+                        "Failed to pull Docker image '{}': {}\n\
+                         Possible causes:\n\
+                         • Image name is incorrect or doesn't exist\n\
+                         • No internet connection\n\
+                         • Docker registry is unreachable\n\
+                         • Authentication required for private images\n\
+                         Hint: Try 'docker pull {}' manually to test connectivity",
+                        image, e, image
+                    ),
+                )));
             }
         }
     }
@@ -467,7 +509,6 @@ async fn pull_image(
     ));
     Ok(())
 }
-
 /// Run a command in a Docker container.
 ///
 /// This function creates and runs a Docker container based on the step configuration,
@@ -625,12 +666,43 @@ async fn run_command_in_container(
         ..Default::default()
     };
 
-    let container = docker.create_container(options, config).await?;
+    let container = docker
+        .create_container(options, config)
+        .await
+        .map_err(|e| {
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!(
+                    "Failed to create Docker container for step '{}': {}\n\
+                 Possible causes:\n\
+                 • Docker daemon is not running\n\
+                 • Insufficient disk space\n\
+                 • Invalid container configuration\n\
+                 • Docker image '{}' is corrupted\n\
+                 Hint: Try 'docker ps' to check if Docker is running",
+                    step_name, e, image
+                ),
+            ))
+        })?;
 
     // Start container
     docker
         .start_container::<String>(&container.id, None)
-        .await?;
+        .await
+        .map_err(|e| {
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!(
+                    "Failed to start Docker container '{}' for step '{}': {}\n\
+                     Possible causes:\n\
+                     • Docker daemon stopped responding\n\
+                     • Container configuration is invalid\n\
+                     • Insufficient system resources\n\
+                     Hint: Check Docker daemon status with 'docker info'",
+                    container.id, step_name, e
+                ),
+            ))
+        })?;
 
     // Wait for container to finish first
     let mut wait_stream = docker.wait_container::<String>(&container.id, None);
@@ -704,13 +776,23 @@ async fn run_command_in_container(
         Ok(_) => println!("Container removed: {}", container.id),
         Err(e) => eprintln!("Failed to remove container: {e}"),
     }
-
     if exit_status {
         Ok(())
     } else {
-        Err(Box::new(std::io::Error::other(format!(
-            "Step failed: {step_name}"
-        ))))
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!(
+                "Step '{}' failed with exit code {}\n\
+                 Command: {}\n\
+                 Image: {}\n\
+                 Hint: Check the command output above for error details. \n\
+                 You can run with --verbose for more detailed logging",
+                step_name,
+                "non-zero", // We'll need to capture the actual exit code
+                step.command,
+                image
+            ),
+        )))
     }
 }
 
@@ -746,7 +828,11 @@ fn create_example_config(
     if Path::new(path).exists() && !force {
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::AlreadyExists,
-            format!("File {path} already exists. Use --force to overwrite."),
+            format!(
+                "Configuration file '{}' already exists\n\
+                 Hint: Use --force to overwrite, or choose a different filename with --file",
+                path
+            ),
         )));
     }
 
@@ -791,8 +877,35 @@ secrets:
     env_var: FORGE_API_TOKEN
 "#;
 
-    let mut file = File::create(path)?;
-    std::io::Write::write_all(&mut file, example_config.as_bytes())?;
+    let mut file = File::create(path).map_err(|e| {
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            format!(
+                "Failed to create configuration file '{}': {}\n\
+                 Possible causes:\n\
+                 • Insufficient write permissions in directory\n\
+                 • Directory doesn't exist\n\
+                 • Disk space full\n\
+                 Hint: Check directory permissions and available disk space",
+                path, e
+            ),
+        ))
+    })?;
+
+    std::io::Write::write_all(&mut file, example_config.as_bytes()).map_err(|e| {
+        Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!(
+                "Failed to write to configuration file '{}': {}\n\
+                 Possible causes:\n\
+                 • Disk space full\n\
+                 • File system error\n\
+                 • Process interrupted\n\
+                 Hint: Check available disk space with 'df -h'",
+                path, e
+            ),
+        ))
+    })?;
 
     println!(
         "{}",
@@ -854,7 +967,11 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if !config_path.exists() {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    format!("Configuration file not found: {file}"),
+                    format!(
+                        "Configuration file not found: '{}'\n\
+                         Hint: Run 'forge-cli init' to create an example config, or specify a different file with --file",
+                        file
+                    ),
                 )));
             }
 
@@ -869,10 +986,39 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             }
 
             // Connect to Docker
-            let docker = Docker::connect_with_local_defaults()?;
+            let docker = Docker::connect_with_local_defaults().map_err(|e| {
+                Box::new(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionRefused,
+                    format!(
+                        "Failed to connect to Docker: {}\n\
+                         Possible causes:\n\
+                         • Docker daemon is not running\n\
+                         • Docker is not installed\n\
+                         • Insufficient permissions to access Docker socket\n\
+                         Solutions:\n\
+                         • Start Docker Desktop (Windows/macOS) or 'sudo systemctl start docker' (Linux)\n\
+                         • Add your user to the docker group: 'sudo usermod -aG docker $USER'\n\
+                         • Verify Docker is working: 'docker --version'",
+                        e
+                    ),
+                ))
+            })?;
 
             // Check if Docker is running
-            docker.ping().await?;
+            docker.ping().await.map_err(|e| {
+                Box::new(std::io::Error::new(
+                    std::io::ErrorKind::ConnectionRefused,
+                    format!(
+                        "Docker daemon is not responding: {}\n\
+                         The Docker service appears to be stopped or unresponsive.\n\
+                         Solutions:\n\
+                         • Restart Docker Desktop (Windows/macOS)\n\
+                         • Restart Docker service: 'sudo systemctl restart docker' (Linux)\n\
+                         • Check Docker status: 'docker info'",
+                        e
+                    ),
+                ))
+            })?;
 
             // If using the old format (just steps), convert to the new format
             if config.stages.is_empty() && !config.steps.is_empty() {
@@ -886,11 +1032,23 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
             // Filter stages if a specific stage is requested
             if let Some(stage_name) = stage {
+                let available_stages: Vec<String> =
+                    config.stages.iter().map(|s| s.name.clone()).collect();
                 config.stages.retain(|s| s.name == stage_name);
                 if config.stages.is_empty() {
                     return Err(Box::new(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        format!("Stage not found: {stage_name}"),
+                        format!(
+                            "Stage '{}' not found in configuration\n\
+                             Available stages: {}\n\
+                             Hint: Check your forge.yaml file for correct stage names",
+                            stage_name,
+                            if available_stages.is_empty() {
+                                "none".to_string()
+                            } else {
+                                available_stages.join(", ")
+                            }
+                        ),
                     )));
                 }
             }
@@ -901,11 +1059,33 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             // Create the directory if it doesn't exist
             if !temp_dir.exists() {
                 if let Err(e) = std::fs::create_dir_all(&temp_dir) {
-                    eprintln!("Failed to create temporary directory: {e}");
-                    // Continue anyway, as this is not critical
+                    return Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        format!(
+                            "Failed to create temporary directory '{}': {}\n\
+                             Possible causes:\n\
+                             • Insufficient permissions in temp directory\n\
+                             • Disk space full\n\
+                             • File system error\n\
+                             Hint: Check permissions and disk space in your temp directory",
+                            temp_dir.display(),
+                            e
+                        ),
+                    )));
                 } else if verbose {
                     println!("Created temporary directory: {}", temp_dir.display());
                 }
+            }
+
+            // Validate pipeline before execution
+            if config.stages.is_empty() {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "No stages or steps found in configuration\n\
+                     Hint: Your forge.yaml file must contain either 'stages' or 'steps'. \n\
+                     Run 'forge-cli init' to see an example configuration"
+                        .to_string(),
+                )));
             }
 
             // Run the pipeline
@@ -953,7 +1133,11 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if !config_path.exists() {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::NotFound,
-                    format!("Configuration file not found: {file}"),
+                    format!(
+                        "Configuration file not found: '{}'\n\
+                         Hint: Run 'forge-cli init' to create an example config, or check the file path",
+                        file
+                    ),
                 )));
             }
 
@@ -963,8 +1147,46 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if config.stages.is_empty() && config.steps.is_empty() {
                 return Err(Box::new(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
-                    "Configuration must have at least one stage or step",
+                    "Configuration validation failed: No stages or steps defined\n\
+                     Your configuration must contain either:\n\
+                     • A 'stages' section with at least one stage\n\
+                     • A 'steps' section with at least one step\n\
+                     Hint: See examples in the documentation or run 'forge-cli init' for a template"
+                        .to_string(),
                 )));
+            }
+
+            // Validate that all stages have at least one step
+            for stage in &config.stages {
+                if stage.steps.is_empty() {
+                    return Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        format!(
+                            "Configuration validation failed: Stage '{}' has no steps\n\
+                             Each stage must contain at least one step with a 'command' field\n\
+                             Hint: Add steps to the stage or remove the empty stage",
+                            stage.name
+                        ),
+                    )));
+                }
+            }
+
+            // Validate that all steps have commands
+            for stage in &config.stages {
+                for (i, step) in stage.steps.iter().enumerate() {
+                    if step.command.trim().is_empty() {
+                        return Err(Box::new(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            format!(
+                                "Configuration validation failed: Step {} in stage '{}' has empty command\n\
+                                 Each step must have a non-empty 'command' field\n\
+                                 Hint: Add a command like 'echo \"Hello World\"' or remove the step",
+                                i + 1,
+                                stage.name
+                            ),
+                        )));
+                    }
+                }
             }
 
             // Check for circular dependencies in stages
@@ -1002,8 +1224,18 @@ async fn forge_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             Ok(())
         }
         None => {
-            eprintln!("Error: No command provided. Use --help for usage information.");
-            std::process::exit(1);
+            return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "No command provided\n\
+                 Available commands:\n\
+                 • forge-cli run      - Execute the pipeline\n\
+                 • forge-cli init     - Create example config\n\
+                 • forge-cli validate - Check config syntax\n\
+                 • forge-cli --help   - Show detailed help\n\
+                 \n\
+                 Hint: Start with 'forge-cli init' to create your first pipeline"
+                    .to_string(),
+            )));
         }
     }
 }

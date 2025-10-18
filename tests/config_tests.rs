@@ -76,9 +76,9 @@ fn read_forge_config(path: &Path) -> Result<ForgeConfig, Box<dyn std::error::Err
 }
 
 #[test]
-fn test_parse_basic_config() {
+fn test_parse_basic_config() -> Result<(), Box<dyn std::error::Error>> {
     // Create a temporary directory for our test files
-    let dir = tempdir().unwrap();
+    let dir = tempdir()?;
     let file_path = dir.path().join("forge.yaml");
 
     // Create a basic config file
@@ -96,11 +96,11 @@ steps:
     working_dir: /app
 "#;
 
-    let mut file = File::create(&file_path).unwrap();
-    file.write_all(config_content.as_bytes()).unwrap();
+    let mut file = File::create(&file_path)?;
+    file.write_all(config_content.as_bytes())?;
 
     // Parse the config
-    let config = read_forge_config(&file_path).unwrap();
+    let config = read_forge_config(&file_path)?;
 
     // Verify the parsed config
     assert_eq!(config.version, "1.0");
@@ -113,12 +113,14 @@ steps:
 
     assert_eq!(config.steps[1].name, "Run Tests");
     assert_eq!(config.steps[1].command, "npm test");
+
+    Ok(())
 }
 
 #[test]
-fn test_parse_advanced_config() {
+fn test_parse_advanced_config() -> Result<(), Box<dyn std::error::Error>> {
     // Create a temporary directory for our test files
-    let dir = tempdir().unwrap();
+    let dir = tempdir()?;
     let file_path = dir.path().join("forge.yaml");
 
     // Create an advanced config file with stages, cache, and secrets
@@ -170,11 +172,11 @@ secrets:
     env_var: FORGE_API_TOKEN
 "#;
 
-    let mut file = File::create(&file_path).unwrap();
-    file.write_all(config_content.as_bytes()).unwrap();
+    let mut file = File::create(&file_path)?;
+    file.write_all(config_content.as_bytes())?;
 
     // Parse the config
-    let config = read_forge_config(&file_path).unwrap();
+    let config = read_forge_config(&file_path)?;
 
     // Verify the parsed config
     assert_eq!(config.version, "1.0");
@@ -205,12 +207,14 @@ secrets:
     assert_eq!(config.secrets.len(), 1);
     assert_eq!(config.secrets[0].name, "API_TOKEN");
     assert_eq!(config.secrets[0].env_var, "FORGE_API_TOKEN");
+
+    Ok(())
 }
 
 #[test]
-fn test_invalid_config() {
+fn test_invalid_config() -> Result<(), Box<dyn std::error::Error>> {
     // Create a temporary directory for our test files
-    let dir = tempdir().unwrap();
+    let dir = tempdir()?;
     let file_path = dir.path().join("forge.yaml");
 
     // Create an invalid config file (missing required field 'command')
@@ -221,18 +225,20 @@ steps:
     working_dir: /app
 "#;
 
-    let mut file = File::create(&file_path).unwrap();
-    file.write_all(config_content.as_bytes()).unwrap();
+    let mut file = File::create(&file_path)?;
+    file.write_all(config_content.as_bytes())?;
 
     // Parse the config - should fail
     let result = read_forge_config(&file_path);
     assert!(result.is_err());
+
+    Ok(())
 }
 
 #[test]
-fn test_empty_config() {
+fn test_empty_config() -> Result<(), Box<dyn std::error::Error>> {
     // Create a temporary directory for our test files
-    let dir = tempdir().unwrap();
+    let dir = tempdir()?;
     let file_path = dir.path().join("forge.yaml");
 
     // Create an empty config file
@@ -240,15 +246,187 @@ fn test_empty_config() {
 # Empty config
 "#;
 
-    let mut file = File::create(&file_path).unwrap();
-    file.write_all(config_content.as_bytes()).unwrap();
+    let mut file = File::create(&file_path)?;
+    file.write_all(config_content.as_bytes())?;
 
     // Parse the config - should succeed but with empty values
-    let config = read_forge_config(&file_path).unwrap();
+    let config = read_forge_config(&file_path)?;
     assert_eq!(config.version, "1.0");
     assert_eq!(config.steps.len(), 0);
     assert_eq!(config.stages.len(), 0);
     assert!(!config.cache.enabled);
     assert_eq!(config.cache.directories.len(), 0);
     assert_eq!(config.secrets.len(), 0);
+
+    Ok(())
+}
+
+#[test]
+fn test_invalid_yaml_syntax() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let file_path = dir.path().join("forge.yaml");
+
+    // Create an invalid syntax config file (missing required field 'command')
+    let config_content = r#"
+steps:
+  name: Invalid Syntax
+  image: node:16-alpine
+    working_dir: /app
+"#;
+
+    let mut file = File::create(&file_path)?;
+    file.write_all(config_content.as_bytes())?;
+
+    // Parse the config - should fail
+    let result = read_forge_config(&file_path);
+    assert!(result.is_err());
+
+    Ok(())
+}
+
+#[test]
+fn test_cache_config() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let file_path = dir.path().join("forge.yaml");
+
+    // Test with cache enabled
+    let config_content_enabled = r#"
+cache:
+  enabled: true
+  directories:
+    - /path/to/cache
+"#;
+    let mut file_enabled = File::create(&file_path)?;
+    file_enabled.write_all(config_content_enabled.as_bytes())?;
+    let config_enabled = read_forge_config(&file_path)?;
+    assert!(config_enabled.cache.enabled);
+    assert_eq!(config_enabled.cache.directories, vec!["/path/to/cache"]);
+
+    // Test with cache disabled
+    let config_content_disabled = r#"
+cache:
+  enabled: false
+"#;
+    let mut file_disabled = File::create(&file_path)?;
+    file_disabled.write_all(config_content_disabled.as_bytes())?;
+    let config_disabled = read_forge_config(&file_path)?;
+    assert!(!config_disabled.cache.enabled);
+
+    // Test with cache section missing
+    let config_content_missing = r#"
+steps:
+  - name: A step
+    command: echo "Hello"
+"#;
+    let mut file_missing = File::create(&file_path)?;
+    file_missing.write_all(config_content_missing.as_bytes())?;
+    let config_missing = read_forge_config(&file_path)?;
+    assert!(!config_missing.cache.enabled);
+
+    Ok(())
+}
+
+#[test]
+fn test_config_secrets() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let file_path = dir.path().join("forge.yaml");
+
+    let config_content = r#"
+secrets:
+  - name: API_TOKEN
+    env_var: FORGE_API_TOKEN
+  - name: SERVICE_NAME
+    env_var: FORGE
+"#;
+    let mut file_enabled = File::create(&file_path)?;
+    file_enabled.write_all(config_content.as_bytes())?;
+    let config = read_forge_config(&file_path)?;
+    assert!(!config.secrets.is_empty());
+
+    assert_eq!(config.secrets[0].env_var, String::from("FORGE_API_TOKEN"));
+    assert_eq!(config.secrets[1].env_var, String::from("FORGE"));
+
+    Ok(())
+}
+
+#[test]
+fn test_stage_dependency_validation() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempdir()?;
+    let file_path = dir.path().join("forge.yaml");
+
+    let config_content = r#"
+stages:
+  - name: test
+    steps: []
+    depends_on:
+      - setup
+
+  - name: setup
+    steps: []
+
+  - name: build
+    steps: []
+    depends_on:
+      - test
+"#;
+
+    let mut file = File::create(&file_path)?;
+    file.write_all(config_content.as_bytes()).unwrap();
+
+    let config = read_forge_config(&file_path)?;
+
+    // Collect all stage names into a HashSet for efficient lookup.
+    let stage_names: std::collections::HashSet<String> =
+        config.stages.iter().map(|s| s.name.clone()).collect();
+
+    // Now, validate the dependencies for each stage.
+    for stage in &config.stages {
+        for dependency in &stage.depends_on {
+            // Assert that the dependency exists in the set of stage names.
+            assert!(
+                stage_names.contains(dependency),
+                "Validation failed: Stage '{} ' depends on an unknown stage '{} '.",
+                stage.name,
+                dependency
+            );
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+#[should_panic(
+    expected = "Validation failed: Stage 'test' depends on an unknown stage 'non_existent'."
+)]
+fn test_invalid_stage_dependency() {
+    let dir = tempdir().unwrap();
+    let file_path = dir.path().join("forge.yaml");
+
+    let config_content = r#"
+stages:
+  - name: test
+    steps: []
+    depends_on:
+      - non_existent
+"#;
+
+    let mut file = File::create(&file_path).unwrap();
+    file.write_all(config_content.as_bytes()).unwrap();
+
+    let config = read_forge_config(&file_path).unwrap();
+
+    let stage_names: std::collections::HashSet<String> =
+        config.stages.iter().map(|s| s.name.clone()).collect();
+
+    for stage in &config.stages {
+        for dependency in &stage.depends_on {
+            assert!(
+                stage_names.contains(dependency),
+                "Validation failed: Stage '{}' depends on an unknown stage '{}'.",
+                stage.name,
+                dependency
+            );
+        }
+    }
 }

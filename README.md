@@ -111,11 +111,16 @@ More examples in [docs/examples.md](docs/examples.md) and [examples/](examples/)
 
 ## Contributing
 
-We welcome contributions! ⭐
+Thank you for your great contributions!
+
+<div align="center">
+  <img src="https://contrib.rocks/image?repo=0xReLogic/Forge" alt="Contributors" />
+</div>
 
 **Good First Issues**: Check out our [good first issue](https://github.com/0xReLogic/Forge/labels/good%20first%20issue) label for beginner-friendly tasks.
 
 **How to Contribute**:
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)

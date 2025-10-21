@@ -1,0 +1,21 @@
+version: "1.0"
+
+container:
+  image: python:3.11-slim
+
+cache:
+  paths:
+    - /root/.cache/pip
+
+stages:
+  - name: Install dependencies
+    steps:
+      - command: pip install -r examples/python/requirements.txt
+
+  - name: Lint
+    steps:
+      - command: flake8 examples/python
+
+  - name: Test
+    steps:
+      - command: pytest examples/python
